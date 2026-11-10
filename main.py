@@ -7,9 +7,87 @@ from pydantic import BaseModel
 from fastapi import FastAPI
 from starlette.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
+from openai import OpenAI
+
+SYSTEM_PROMPT = """
+    你是一个专门玩猜字谜的AI小助手，只进行字谜互动，不闲聊无关内容，全程纯文本交互。
+    请严格遵守以下规则：
+
+    一、出题规则
+    1. 开场先友好打招呼，并随机出一道常见、简单、适合大众的字谜，不生僻、不低俗、不使用网络烂梗。
+    2. 题目格式：“谜面”（打一字）。
+    3. 每次出题必须完全随机，禁止重复使用相同题目；你需要在对话上下文中主动记录已使用过的谜语，确保同一会话内绝对【截图截断】
+    4. 避免使用高频重复的经典老谜语，尽量选择多样化的中等常见谜语。
+
+    二、【判题规则（最重要！）】
+    1. 判题时，只看用户输入中的核心汉字，忽略无关内容：
+       - 比如用户输入“江字”“江”“jiang”，都视为答案是[江]；
+       - 用户输入“是江吗？”“应该是江”，也视为答案是[江]。
+    2. 核心字与正确答案完全一致 → 判为正确，回复：“太棒了！答对了！就是‘XX’字！要不要再来一题？”
+    3. 核心字与正确答案不一致 → 判为错误，回复：“不对哦，再想想~ 给你个小提示：[简短线索，不泄露答案]”
+    4. 用户说“不知道”“公布答案”：先揭晓谜底和解释，再问“要不要再来一题？”
+
+    三、互动流程
+    1. 用户答对：夸奖 + 确认正确 + 询问“要不要再来一题？”
+    2. 用户答错：告知不对 + 简单提示 + 鼓励继续猜
+    3. 用户说“提示一下”：给出简短线索，不公布答案
+    4. 用户说“公布答案”或“不知道”：揭晓谜底并解释 + 询问“要不要再来一题？”
+    5. 用户说“换一题”“再来一题”：立即更换新字谜
+
+    四、其他要求
+    1. 语气轻松有趣、简洁明快，不啰嗦。
+    2. 全程只围绕字谜，不回答其他问题、不聊无关话题。
+    3. 不使用多余表情符号，保持简洁。
+    4. 若用户答案与正确答案仅差一字或笔画，请仔细核对是否正确。
+
+    请严格按以上规则回复，优先保证谜语的随机性和多样性。
+"""
 
 #创建fastapi实例对象
 app = FastAPI(title="汉字谜盒")
+#创建ai对象
+client = OpenAI(api_key=os.environ.get('DEEPSEEK_API_KEY'),base_url="https://api.deepseek.com")
+
+def chat_with_ai(session_id: str, message: str):
+    """
+    1.读取id对应的json文件
+    2.将用户输入和文件中的内容组合成messages列表
+    3.将messages列表传递给ai模型，获取ai回答
+    4.把ai回答也组装到message中 然后把system剔除 因为下次会重新组装
+    5.更新json文件
+    6.返回ai回答
+    :param session_id:对话名称
+    :param message:用户输入
+    :return:ai回答
+    """
+    #1.
+    with open(f"sessions/{session_id}.json", "r", encoding="utf-8") as f:
+        session_data = json.load(f)
+    #2.
+    messages = [ {"role": "system", "content": SYSTEM_PROMPT}  ]
+    for mes in session_data["messages"]:
+        messages.append(mes)
+    messages.append({"role": "user", "content": message})
+    #3.
+    response = client.chat.completions.create(
+        model="deepseek-flash",
+        messages=messages,
+        stream=False,
+        reasoning_effort="high",
+        extra_body={"thinking": {"type": "enabled"}},
+        temperature=1.5
+    )
+    ai_res  =response.choices[0].message.content
+    #4.
+    messages.pop(0)   #剔除system
+    messages.append({"role": "assistant", "content": ai_res})
+    session_data["messages"] = messages
+    # 5.
+    with open(f"sessions/{session_id}.json", "w", encoding="utf-8") as f:
+        json.dump(session_data, f, ensure_ascii=False, indent=2)
+    # 6.
+    return ai_res
+
 
 
 #挂载静态文件的存放目录
@@ -86,9 +164,9 @@ def chat(request: ChatRequest):
     将用户输入传递给模型得到模型回答
     :return:       json格式{"code":200,"message":"成功" ,data:ai返回的消息} 用fastapi自带的类完成 会把传入的参数转化为json格式
     """
-    print(request.session_id)
-    print(request.message)
-    return ApiResponse(code=200, message="成功", data="这是模型返回的消息")
+    ai_res = chat_with_ai(request.session_id, request.message)
+
+    return ApiResponse(code=200, message="成功", data=ai_res)
 
 if __name__ == '__main__':
     import uvicorn
