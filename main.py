@@ -5,7 +5,7 @@ from datetime import datetime
 from typing import Any
 from pydantic import BaseModel
 from fastapi import FastAPI
-from starlette.responses import FileResponse
+from starlette.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from openai import OpenAI
 
@@ -209,6 +209,21 @@ def delete_session(session_id: str):
     if os.path.exists(f"sessions/{session_id}.json"):
        os.remove(f"sessions/{session_id}.json")
     return ApiResponse(code=200, message="删除指定会话成功",data=None)
+
+#异常处理
+@app.exception_handler(Exception)
+def exception_handler(request, exc):
+    """
+    这样前端就会收到一个 JSON 格式的响应，包含错误码、错误信息和错误数据。
+    做到前端接收到的数据格式统一 方便前端处理
+    而不是说错误
+    :param request:
+    :param exc:
+    :return:
+    """
+    print(f"处理异常，请求路径：{request.url}，异常信息：{exc}")
+    return JSONResponse(content={"code":500, "message": "服务器内部错误", "data":None})
+
 
 if __name__ == '__main__':
     import uvicorn
