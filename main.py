@@ -198,6 +198,17 @@ def get_session(session_id: str):
 
     return ApiResponse(code=200, message="加载指定会话成功", data=session_data)
 
+@app.delete("/api/sessions/{session_id}")
+def delete_session(session_id: str):
+    """
+    删除指定会话信息
+    请求 URL  http://127.0.0.1:8000/api/sessions/2026-11-10_15-37-27
+    Request method  delete
+    :return:       json格式{"code":200,"message":"成功" ,data:null}
+    """
+    if os.path.exists(f"sessions/{session_id}.json"):
+       os.remove(f"sessions/{session_id}.json")
+    return ApiResponse(code=200, message="删除指定会话成功",data=None)
 
 if __name__ == '__main__':
     import uvicorn
