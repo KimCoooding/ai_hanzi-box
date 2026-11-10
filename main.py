@@ -168,6 +168,20 @@ def chat(request: ChatRequest):
 
     return ApiResponse(code=200, message="成功", data=ai_res)
 
+@app.get("/api/sessions")
+def get_sessions():
+    """
+    获取所有对话的id
+    请求 URL         http://127.0.0.1:8000/api/sessions
+    Request method  GET
+    :return:       json格式{"code":200,"message":"成功" ,data:对话id列表}
+    """
+    sessions_list = os.listdir("sessions")
+    sessions = [session.split(".")[0] for session in sessions_list]
+
+    return ApiResponse(code=200, message="成功", data=sessions)
+
+
 if __name__ == '__main__':
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
