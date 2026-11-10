@@ -1,8 +1,8 @@
+#http://127.0.0.1:8000/
 import json
 import os
 from datetime import datetime
 from typing import Any
-
 from pydantic import BaseModel
 from fastapi import FastAPI
 from starlette.responses import FileResponse
@@ -28,17 +28,27 @@ class ApiResponse(BaseModel):
     code: int
     message: str
     data: Any
+#创建接收数据的类对象
+class ChatRequest(BaseModel):
+    session_id: str
+    message: str
+
 
 #定义路径操作函数 ---》http://127.0.0.1:8000/
 @app.get("/")
 def read_root():
-    return FileResponse("static/index.html")   #把服务器上的 HTML 文件作为响应发出去
+    """
+    浏览器输入http://127.0.0.1:8000/ 也就是向服务器发送get请求 这个请求 会 执行相应装饰器的函数
+
+    :return: 把服务器上的 HTML 文件作为响应发出去
+    """
+    return FileResponse("static/index.html")
 
 @app.post("/api/sessions")
 def create_session():
     """
     通过抓包
-    发现请求 URL  http://127.0.0.1:8000/api/sessions
+    发现请求 URL  http://127.0.0.1:8000/api/sessions  前端像服务器发送请求就会执行相应装饰器装饰的函数
     Request method post
     所以 这个接口的路径就是 /api/sessions
     模式是post 增加
@@ -63,6 +73,22 @@ def create_session():
     #3.
     return ApiResponse(code=200, message="对话创建成功", data= session_id)
 
+
+
+
+@app.post("/api/chat")
+def chat(request: ChatRequest):
+    """
+    获取前端用户的输入
+    请求 URL         http://127.0.0.1:8000/api/chat
+    Request method  POST
+    Request pyload  {"session_id":"对话id","message":"用户输入"} 创建basemodel的类 会把json自动转化为对象(request)的属性
+    将用户输入传递给模型得到模型回答
+    :return:       json格式{"code":200,"message":"成功" ,data:ai返回的消息} 用fastapi自带的类完成 会把传入的参数转化为json格式
+    """
+    print(request.session_id)
+    print(request.message)
+    return ApiResponse(code=200, message="成功", data="这是模型返回的消息")
 
 if __name__ == '__main__':
     import uvicorn
