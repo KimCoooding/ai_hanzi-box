@@ -178,8 +178,25 @@ def get_sessions():
     """
     sessions_list = os.listdir("sessions")
     sessions = [session.split(".")[0] for session in sessions_list]
+    sessions.sort(reverse=True)
 
     return ApiResponse(code=200, message="成功", data=sessions)
+
+@app.get("/api/sessions/{session_id}")
+def get_session(session_id: str):
+    """
+    get请求 参数没有放在？后面 而是放在了路径中 这种叫做路径参数
+    我们可以在装饰器中添加通配符 {session_id} 来捕获路径参数
+    函数的传参要和通配符一致
+    获取指定会话信息 加载出来
+    请求 URL  http://127.0.0.1:8000/api/sessions/2026-11-10_15-37-27
+    Request m ethod GET
+    :return:       json格式{"code":200,"message":"成功" ,data:对话内容}
+    """
+    with open(f"sessions/{session_id}.json", "r", encoding="utf-8") as f:
+        session_data = json.load(f)
+
+    return ApiResponse(code=200, message="加载指定会话成功", data=session_data)
 
 
 if __name__ == '__main__':
